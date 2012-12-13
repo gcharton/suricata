@@ -92,6 +92,7 @@ void *ParsePcapConfig(const char *iface)
     char *tmpbpf;
     char *tmpctype;
     intmax_t value;
+    int promisc = 0;
 
     if (unlikely(aconf == NULL)) {
         return NULL;
@@ -183,6 +184,14 @@ void *ParsePcapConfig(const char *iface)
         }
     } else {
         SCLogInfo("BPF filter set from command line or via old 'bpf-filter' option.");
+    }
+
+
+    aconf->promisc = LIBPCAP_PROMISC;
+    if (ConfGetChildValueBool(if_root, "promisc", &promisc) != 1) {
+        SCLogDebug("could not get promisc or none specified");
+    } else {
+        aconf->promisc = promisc;
     }
 
     if (ConfGetChildValue(if_root, "checksum-checks", &tmpctype) == 1) {
