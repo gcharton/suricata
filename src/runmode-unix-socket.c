@@ -268,9 +268,9 @@ TmEcode UnixSocketPcapFilesCheck(void *data)
         }
         unix_manager_file_task_failed = 0;
         this->running = 0;
+        FlowForceReassembly();
         TmThreadKillThreadsFamily(TVT_MGMT);
         TmThreadClearThreadsFamily(TVT_MGMT);
-        FlowForceReassembly();
         TmThreadKillThreadsFamily(TVT_PPT);
         TmThreadClearThreadsFamily(TVT_PPT);
         RunModeShutDown();
