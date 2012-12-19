@@ -362,6 +362,8 @@ TmEcode PcapLogDataInit(ThreadVars *t, void *initdata, void **data)
 
 TmEcode PcapLogDataDeinit(ThreadVars *t, void *data)
 {
+    PcapLogData *pl = (PcapLogData *)data;
+    PcapLogCloseFile(t, pl);
     return TM_ECODE_OK;
 }
 
