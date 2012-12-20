@@ -264,10 +264,11 @@ TmEcode UnixSocketPcapFilesCheck(void *data)
     }
     if ((unix_manager_file_task_failed == 1) || (this->running == 1)) {
         if (unix_manager_file_task_failed) {
-            SCLogInfo("Preceeding taks failed, cleaning the running mode");
+            SCLogInfo("Preceeding tasks failed, cleaning the running mode");
         }
         unix_manager_file_task_failed = 0;
         this->running = 0;
+        FlowKillFlowManagerThread();
         FlowForceReassembly();
         TmThreadKillThreadsFamily(TVT_MGMT);
         TmThreadClearThreadsFamily(TVT_MGMT);
@@ -277,8 +278,8 @@ TmEcode UnixSocketPcapFilesCheck(void *data)
         SCPerfReleaseResources();
         /* thread killed, we can run non thread-safe shutdown functions */
         FlowShutdown();
-        HostCleanup();
         StreamTcpFreeConfig(STREAM_VERBOSE);
+        HostCleanup();
         DefragDestroy();
         TmqResetQueues();
     }
