@@ -25,10 +25,10 @@
 #ifndef __LOG_TLSLOG_H__
 #define __LOG_TLSLOG_H__
 
-void TmModuleLogTlsLogRegister (void);
-void TmModuleLogTlsLogIPv4Register (void);
-void TmModuleLogTlsLogIPv6Register (void);
-OutputCtx *LogTlsLogInitCtx(ConfNode *);
+void TmModuleLogTlsLogJsonRegister (void);
+void TmModuleLogTlsLogJsonIPv4Register (void);
+void TmModuleLogTlsLogJsonIPv6Register (void);
+OutputCtx *LogTlsLogJsonInitCtx(ConfNode *);
 
 #endif /* __LOG_TLSLOG_H__ */
 

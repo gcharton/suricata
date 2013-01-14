@@ -54,7 +54,7 @@
 static char tls_logfile_base_dir[PATH_MAX] = "/tmp";
 SC_ATOMIC_DECLARE(unsigned int, cert_id);
 
-#define MODULE_NAME "LogTlsLog"
+#define MODULE_NAME "LogTlsLogJson"
 
 #define OUTPUT_BUFFER_SIZE 65535
 #define CERT_ENC_BUFFER_SIZE 2048
@@ -62,25 +62,25 @@ SC_ATOMIC_DECLARE(unsigned int, cert_id);
 #define LOG_TLS_DEFAULT     0
 #define LOG_TLS_EXTENDED    1
 
-TmEcode LogTlsLog(ThreadVars *, Packet *, void *, PacketQueue *, PacketQueue *);
-TmEcode LogTlsLogIPv4(ThreadVars *, Packet *, void *, PacketQueue *, PacketQueue *);
-TmEcode LogTlsLogIPv6(ThreadVars *, Packet *, void *, PacketQueue *, PacketQueue *);
-TmEcode LogTlsLogThreadInit(ThreadVars *, void *, void **);
-TmEcode LogTlsLogThreadDeinit(ThreadVars *, void *);
-void LogTlsLogExitPrintStats(ThreadVars *, void *);
-static void LogTlsLogDeInitCtx(OutputCtx *);
+TmEcode LogTlsLogJson(ThreadVars *, Packet *, void *, PacketQueue *, PacketQueue *);
+TmEcode LogTlsLogJsonIPv4(ThreadVars *, Packet *, void *, PacketQueue *, PacketQueue *);
+TmEcode LogTlsLogJsonIPv6(ThreadVars *, Packet *, void *, PacketQueue *, PacketQueue *);
+TmEcode LogTlsLogJsonThreadInit(ThreadVars *, void *, void **);
+TmEcode LogTlsLogJsonThreadDeinit(ThreadVars *, void *);
+void LogTlsLogJsonExitPrintStats(ThreadVars *, void *);
+static void LogTlsLogJsonDeInitCtx(OutputCtx *);
 
-void TmModuleLogTlsLogRegister(void)
+void TmModuleLogTlsLogJsonRegister(void)
 {
     tmm_modules[TMM_LOGTLSLOG].name = MODULE_NAME;
-    tmm_modules[TMM_LOGTLSLOG].ThreadInit = LogTlsLogThreadInit;
-    tmm_modules[TMM_LOGTLSLOG].Func = LogTlsLog;
-    tmm_modules[TMM_LOGTLSLOG].ThreadExitPrintStats = LogTlsLogExitPrintStats;
-    tmm_modules[TMM_LOGTLSLOG].ThreadDeinit = LogTlsLogThreadDeinit;
+    tmm_modules[TMM_LOGTLSLOG].ThreadInit = LogTlsLogJsonThreadInit;
+    tmm_modules[TMM_LOGTLSLOG].Func = LogTlsLogJson;
+    tmm_modules[TMM_LOGTLSLOG].ThreadExitPrintStats = LogTlsLogJsonExitPrintStats;
+    tmm_modules[TMM_LOGTLSLOG].ThreadDeinit = LogTlsLogJsonThreadDeinit;
     tmm_modules[TMM_LOGTLSLOG].RegisterTests = NULL;
     tmm_modules[TMM_LOGTLSLOG].cap_flags = 0;
 
-    OutputRegisterModule(MODULE_NAME, "tls-log", LogTlsLogInitCtx);
+    OutputRegisterModule(MODULE_NAME, "tls-log-json", LogTlsLogJsonInitCtx);
 
     /* enable the logger for the app layer */
     AppLayerRegisterLogger(ALPROTO_TLS);
@@ -88,42 +88,42 @@ void TmModuleLogTlsLogRegister(void)
     SC_ATOMIC_INIT(cert_id);
 }
 
-void TmModuleLogTlsLogIPv4Register(void)
+void TmModuleLogTlsLogJsonIPv4Register(void)
 {
-    tmm_modules[TMM_LOGTLSLOG4].name = "LogTlsLogIPv4";
-    tmm_modules[TMM_LOGTLSLOG4].ThreadInit = LogTlsLogThreadInit;
-    tmm_modules[TMM_LOGTLSLOG4].Func = LogTlsLogIPv4;
-    tmm_modules[TMM_LOGTLSLOG4].ThreadExitPrintStats = LogTlsLogExitPrintStats;
-    tmm_modules[TMM_LOGTLSLOG4].ThreadDeinit = LogTlsLogThreadDeinit;
+    tmm_modules[TMM_LOGTLSLOG4].name = "LogTlsLogJsonIPv4";
+    tmm_modules[TMM_LOGTLSLOG4].ThreadInit = LogTlsLogJsonThreadInit;
+    tmm_modules[TMM_LOGTLSLOG4].Func = LogTlsLogJsonIPv4;
+    tmm_modules[TMM_LOGTLSLOG4].ThreadExitPrintStats = LogTlsLogJsonExitPrintStats;
+    tmm_modules[TMM_LOGTLSLOG4].ThreadDeinit = LogTlsLogJsonThreadDeinit;
     tmm_modules[TMM_LOGTLSLOG4].RegisterTests = NULL;
 }
 
-void TmModuleLogTlsLogIPv6Register(void)
+void TmModuleLogTlsLogJsonIPv6Register(void)
 {
-    tmm_modules[TMM_LOGTLSLOG6].name = "LogTlsLogIPv6";
-    tmm_modules[TMM_LOGTLSLOG6].ThreadInit = LogTlsLogThreadInit;
-    tmm_modules[TMM_LOGTLSLOG6].Func = LogTlsLogIPv6;
-    tmm_modules[TMM_LOGTLSLOG6].ThreadExitPrintStats = LogTlsLogExitPrintStats;
-    tmm_modules[TMM_LOGTLSLOG6].ThreadDeinit = LogTlsLogThreadDeinit;
+    tmm_modules[TMM_LOGTLSLOG6].name = "LogTlsLogJsonIPv6";
+    tmm_modules[TMM_LOGTLSLOG6].ThreadInit = LogTlsLogJsonThreadInit;
+    tmm_modules[TMM_LOGTLSLOG6].Func = LogTlsLogJsonIPv6;
+    tmm_modules[TMM_LOGTLSLOG6].ThreadExitPrintStats = LogTlsLogJsonExitPrintStats;
+    tmm_modules[TMM_LOGTLSLOG6].ThreadDeinit = LogTlsLogJsonThreadDeinit;
     tmm_modules[TMM_LOGTLSLOG6].RegisterTests = NULL;
 }
 
-typedef struct LogTlsFileCtx_ {
+typedef struct LogTlsJsonFileCtx_ {
     LogFileCtx *file_ctx;
     uint32_t flags; /** Store mode */
-} LogTlsFileCtx;
+} LogTlsJsonFileCtx;
 
 
-typedef struct LogTlsLogThread_ {
-    LogTlsFileCtx *tlslog_ctx;
+typedef struct LogTlsLogJsonThread_ {
+    LogTlsJsonFileCtx *tlslog_ctx;
 
-    /** LogTlsFileCtx has the pointer to the file and a mutex to allow multithreading */
+    /** LogTlsJsonFileCtx has the pointer to the file and a mutex to allow multithreading */
     uint32_t tls_cnt;
 
     MemBuffer *buffer;
     uint8_t*   enc_buf;
     size_t     enc_buf_len;
-} LogTlsLogThread;
+} LogTlsLogJsonThread;
 
 static void CreateTimeString(const struct timeval *ts, char *str, size_t size)
 {
@@ -136,7 +136,7 @@ static void CreateTimeString(const struct timeval *ts, char *str, size_t size)
             t->tm_min, t->tm_sec, (uint32_t) ts->tv_usec);
 }
 
-static void LogTlsLogExtended(LogTlsLogThread *aft, SSLState * state)
+static void LogTlsLogJsonExtended(LogTlsLogJsonThread *aft, SSLState * state)
 {
     if (state->server_connp.cert0_fingerprint != NULL) {
         MemBufferWriteString(aft->buffer, " SHA1='%s'", state->server_connp.cert0_fingerprint);
@@ -206,7 +206,7 @@ static int GetIPInformations(Packet *p, char* srcip, size_t srcip_len,
     return 1;
 }
 
-static int CreateFileName(LogTlsFileCtx *log, Packet *p, SSLState *state, char *filename)
+static int CreateFileName(LogTlsJsonFileCtx *log, Packet *p, SSLState *state, char *filename)
 {
 #define FILELEN 64  //filename len + extention + ending path / + some space
 
@@ -229,7 +229,7 @@ static int CreateFileName(LogTlsFileCtx *log, Packet *p, SSLState *state, char *
 }
 
 
-static void LogTlsLogPem(LogTlsLogThread *aft, Packet *p, SSLState *state, LogTlsFileCtx *log, int ipproto)
+static void LogTlsLogJsonPem(LogTlsLogJsonThread *aft, Packet *p, SSLState *state, LogTlsJsonFileCtx *log, int ipproto)
 {
 #define PEMHEADER "-----BEGIN CERTIFICATE-----\n"
 #define PEMFOOTER "-----END CERTIFICATE-----\n"
@@ -360,12 +360,12 @@ end_fp:
 }
 
 
-static TmEcode LogTlsLogIPWrapper(ThreadVars *tv, Packet *p, void *data, PacketQueue *pq, PacketQueue *postpq, int ipproto)
+static TmEcode LogTlsLogJsonIPWrapper(ThreadVars *tv, Packet *p, void *data, PacketQueue *pq, PacketQueue *postpq, int ipproto)
 {
 
     SCEnter();
-    LogTlsLogThread *aft = (LogTlsLogThread *) data;
-    LogTlsFileCtx *hlog = aft->tlslog_ctx;
+    LogTlsLogJsonThread *aft = (LogTlsLogJsonThread *) data;
+    LogTlsJsonFileCtx *hlog = aft->tlslog_ctx;
 
     char timebuf[64];
 
@@ -390,7 +390,7 @@ static TmEcode LogTlsLogIPWrapper(ThreadVars *tv, Packet *p, void *data, PacketQ
         goto end;
 
     if (ssl_state->server_connp.cert_log_flag & SSL_TLS_LOG_PEM) {
-        LogTlsLogPem(aft, p, ssl_state, hlog, ipproto);
+        LogTlsLogJsonPem(aft, p, ssl_state, hlog, ipproto);
     }
 
     int r = AppLayerTransactionGetLoggedId(p->flow);
@@ -419,7 +419,7 @@ static TmEcode LogTlsLogIPWrapper(ThreadVars *tv, Packet *p, void *data, PacketQ
     AppLayerTransactionUpdateLoggedId(p->flow);
 
     if (hlog->flags & LOG_TLS_EXTENDED) {
-        LogTlsLogExtended(aft, ssl_state);
+        LogTlsLogJsonExtended(aft, ssl_state);
     } else {
         MemBufferWriteString(aft->buffer, "\n");
     }
@@ -437,17 +437,17 @@ end:
 
 }
 
-TmEcode LogTlsLogIPv4(ThreadVars *tv, Packet *p, void *data, PacketQueue *pq, PacketQueue *postpq)
+TmEcode LogTlsLogJsonIPv4(ThreadVars *tv, Packet *p, void *data, PacketQueue *pq, PacketQueue *postpq)
 {
-    return LogTlsLogIPWrapper(tv, p, data, pq, postpq, AF_INET);
+    return LogTlsLogJsonIPWrapper(tv, p, data, pq, postpq, AF_INET);
 }
 
-TmEcode LogTlsLogIPv6(ThreadVars *tv, Packet *p, void *data, PacketQueue *pq, PacketQueue *postpq)
+TmEcode LogTlsLogJsonIPv6(ThreadVars *tv, Packet *p, void *data, PacketQueue *pq, PacketQueue *postpq)
 {
-    return LogTlsLogIPWrapper(tv, p, data, pq, postpq, AF_INET6);
+    return LogTlsLogJsonIPWrapper(tv, p, data, pq, postpq, AF_INET6);
 }
 
-TmEcode LogTlsLog(ThreadVars *tv, Packet *p, void *data, PacketQueue *pq, PacketQueue *postpq)
+TmEcode LogTlsLogJson(ThreadVars *tv, Packet *p, void *data, PacketQueue *pq, PacketQueue *postpq)
 {
     SCEnter();
 
@@ -461,23 +461,23 @@ TmEcode LogTlsLog(ThreadVars *tv, Packet *p, void *data, PacketQueue *pq, Packet
     }
 
     if (PKT_IS_IPV4(p)) {
-        SCReturnInt(LogTlsLogIPv4(tv, p, data, pq, postpq));
+        SCReturnInt(LogTlsLogJsonIPv4(tv, p, data, pq, postpq));
     } else if (PKT_IS_IPV6(p)) {
-        SCReturnInt(LogTlsLogIPv6(tv, p, data, pq, postpq));
+        SCReturnInt(LogTlsLogJsonIPv6(tv, p, data, pq, postpq));
     }
 
     SCReturnInt(TM_ECODE_OK);
 }
 
-TmEcode LogTlsLogThreadInit(ThreadVars *t, void *initdata, void **data)
+TmEcode LogTlsLogJsonThreadInit(ThreadVars *t, void *initdata, void **data)
 {
-    LogTlsLogThread *aft = SCMalloc(sizeof(LogTlsLogThread));
+    LogTlsLogJsonThread *aft = SCMalloc(sizeof(LogTlsLogJsonThread));
     if (unlikely(aft == NULL))
         return TM_ECODE_FAILED;
-    memset(aft, 0, sizeof(LogTlsLogThread));
+    memset(aft, 0, sizeof(LogTlsLogJsonThread));
 
     if (initdata == NULL) {
-        SCLogDebug( "Error getting context for TLSLog.  \"initdata\" argument NULL");
+        SCLogDebug( "Error getting context for TLSLogJson.  \"initdata\" argument NULL");
         SCFree(aft);
         return TM_ECODE_FAILED;
     }
@@ -503,24 +503,24 @@ TmEcode LogTlsLogThreadInit(ThreadVars *t, void *initdata, void **data)
     return TM_ECODE_OK;
 }
 
-TmEcode LogTlsLogThreadDeinit(ThreadVars *t, void *data)
+TmEcode LogTlsLogJsonThreadDeinit(ThreadVars *t, void *data)
 {
-    LogTlsLogThread *aft = (LogTlsLogThread *) data;
+    LogTlsLogJsonThread *aft = (LogTlsLogJsonThread *) data;
     if (aft == NULL) {
         return TM_ECODE_OK;
     }
 
     MemBufferFree(aft->buffer);
     /* clear memory */
-    memset(aft, 0, sizeof(LogTlsLogThread));
+    memset(aft, 0, sizeof(LogTlsLogJsonThread));
 
     SCFree(aft);
     return TM_ECODE_OK;
 }
 
-void LogTlsLogExitPrintStats(ThreadVars *tv, void *data)
+void LogTlsLogJsonExitPrintStats(ThreadVars *tv, void *data)
 {
-    LogTlsLogThread *aft = (LogTlsLogThread *) data;
+    LogTlsLogJsonThread *aft = (LogTlsLogJsonThread *) data;
     if (aft == NULL) {
         return;
     }
@@ -532,12 +532,12 @@ void LogTlsLogExitPrintStats(ThreadVars *tv, void *data)
  *  \param conf Pointer to ConfNode containing this loggers configuration.
  *  \return NULL if failure, LogFileCtx* to the file_ctx if succesful
  * */
-OutputCtx *LogTlsLogInitCtx(ConfNode *conf)
+OutputCtx *LogTlsLogJsonInitCtx(ConfNode *conf)
 {
     LogFileCtx* file_ctx = LogFileNewCtx();
 
     if (file_ctx == NULL) {
-        SCLogError(SC_ERR_TLS_LOG_GENERIC, "LogTlsLogInitCtx: Couldn't "
+        SCLogError(SC_ERR_TLS_LOG_GENERIC, "LogTlsLogJsonInitCtx: Couldn't "
         "create new file_ctx");
         return NULL;
     }
@@ -565,7 +565,7 @@ OutputCtx *LogTlsLogInitCtx(ConfNode *conf)
         goto filectx_error;
     }
 
-    LogTlsFileCtx *tlslog_ctx = SCCalloc(1, sizeof(LogTlsFileCtx));
+    LogTlsJsonFileCtx *tlslog_ctx = SCCalloc(1, sizeof(LogTlsJsonFileCtx));
     if (unlikely(tlslog_ctx == NULL))
         goto filectx_error;
     tlslog_ctx->file_ctx = file_ctx;
@@ -583,7 +583,7 @@ OutputCtx *LogTlsLogInitCtx(ConfNode *conf)
     if (unlikely(output_ctx == NULL))
         goto tlslog_error;
     output_ctx->data = tlslog_ctx;
-    output_ctx->DeInit = LogTlsLogDeInitCtx;
+    output_ctx->DeInit = LogTlsLogJsonDeInitCtx;
 
     SCLogDebug("TLS log output initialized");
 
@@ -597,9 +597,9 @@ filectx_error:
     return NULL;
 }
 
-static void LogTlsLogDeInitCtx(OutputCtx *output_ctx)
+static void LogTlsLogJsonDeInitCtx(OutputCtx *output_ctx)
 {
-    LogTlsFileCtx *tlslog_ctx = (LogTlsFileCtx *) output_ctx->data;
+    LogTlsJsonFileCtx *tlslog_ctx = (LogTlsJsonFileCtx *) output_ctx->data;
     LogFileFreeCtx(tlslog_ctx->file_ctx);
     SCFree(tlslog_ctx);
     SCFree(output_ctx);
