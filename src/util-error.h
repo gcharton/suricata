@@ -256,6 +256,7 @@ typedef enum {
     SC_ERR_NO_REPUTATION,
     SC_ERR_NOT_SUPPORTED,
     SC_ERR_IPFW_SETSOCKOPT,
+    SC_ERR_JSON_NOSUPPORT,
 } SCError;
 
 const char *SCErrorToString(SCError);

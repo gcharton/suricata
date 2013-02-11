@@ -49,12 +49,69 @@
 #include "util-logopenfile.h"
 #include "util-crypt.h"
 
+#define MODULE_NAME "LogTlsLogJson"
+
+#ifndef HAVE_LIBJANSSON
+
+TmEcode NoJsonSupportExit(ThreadVars *, void *, void **);
+
+void TmModuleLogTlsLogJsonRegister(void)
+{
+    tmm_modules[TMM_LOGTLSLOGJSON].name = MODULE_NAME;
+    tmm_modules[TMM_LOGTLSLOGJSON].ThreadInit = NoJsonSupportExit;
+    tmm_modules[TMM_LOGTLSLOGJSON].Func = NULL;
+    tmm_modules[TMM_LOGTLSLOGJSON].ThreadExitPrintStats = NULL;
+    tmm_modules[TMM_LOGTLSLOGJSON].ThreadDeinit = NULL;
+    tmm_modules[TMM_LOGTLSLOGJSON].RegisterTests = NULL;
+    tmm_modules[TMM_LOGTLSLOGJSON].cap_flags = 0;
+
+    OutputRegisterModule(MODULE_NAME, "tls-log-json", LogTlsLogJsonInitCtx);
+
+    /* enable the logger for the app layer */
+
+    //SC_ATOMIC_INIT(cert_id);
+}
+
+void TmModuleLogTlsLogJsonIPv4Register(void)
+{
+    tmm_modules[TMM_LOGTLSLOGJSON4].name = "LogTlsLogJsonIPv4";
+    tmm_modules[TMM_LOGTLSLOGJSON4].ThreadInit = NoJsonSupportExit;
+    tmm_modules[TMM_LOGTLSLOGJSON4].Func = NULL;
+    tmm_modules[TMM_LOGTLSLOGJSON4].ThreadExitPrintStats = NULL;
+    tmm_modules[TMM_LOGTLSLOGJSON4].ThreadDeinit = NULL;
+    tmm_modules[TMM_LOGTLSLOGJSON4].RegisterTests = NULL;
+}
+
+void TmModuleLogTlsLogJsonIPv6Register(void)
+{
+    tmm_modules[TMM_LOGTLSLOGJSON6].name = "LogTlsLogJsonIPv6";
+    tmm_modules[TMM_LOGTLSLOGJSON6].ThreadInit = NoJsonSupportExit;
+    tmm_modules[TMM_LOGTLSLOGJSON6].Func = NULL;
+    tmm_modules[TMM_LOGTLSLOGJSON6].ThreadExitPrintStats = NULL;
+    tmm_modules[TMM_LOGTLSLOGJSON6].ThreadDeinit = NULL;
+    tmm_modules[TMM_LOGTLSLOGJSON6].RegisterTests = NULL;
+}
+
+TmEcode NoJsonSupportExit(ThreadVars *tv, void *initdata, void **data)
+{
+    SCLogError(SC_ERR_JSON_NOSUPPORT,"Error creating thread %s: you do not have support for jansson "
+           "enabled please install lib jansson.h", tv->name);
+    exit(EXIT_FAILURE);
+}
+
+OutputCtx *LogTlsLogJsonInitCtx(ConfNode *conf)
+{    SCLogError(SC_ERR_JSON_NOSUPPORT,"Error init: you do not have support for jansson "
+           "enabled please install lib jansson.h");
+    return NULL;
+}
+
+#else //HAVE_LIBJANSSON
+#include <jansson.h>
+
 #define DEFAULT_LOG_FILENAME "tls-json.log"
 
 static char tls_logfile_base_dir[PATH_MAX] = "/tmp";
 SC_ATOMIC_DECLARE(unsigned int, cert_id);
-
-#define MODULE_NAME "LogTlsLogJson"
 
 #define OUTPUT_BUFFER_SIZE 65535
 #define CERT_ENC_BUFFER_SIZE 2048
@@ -136,36 +193,44 @@ static void CreateTimeString(const struct timeval *ts, char *str, size_t size)
             t->tm_min, t->tm_sec, (uint32_t) ts->tv_usec);
 }
 
-static void LogTlsLogJsonExtended(LogTlsLogJsonThread *aft, SSLState * state)
+static void LogTlsLogJsonExtended(json_t *logJson, SSLState * state)
 {
     if (state->server_connp.cert0_fingerprint != NULL) {
-        MemBufferWriteString(aft->buffer, " SHA1='%s'", state->server_connp.cert0_fingerprint);
+        //MemBufferWriteString(aft->buffer, " SHA1='%s'", state->server_connp.cert0_fingerprint);
+        json_object_set(logJson, "SHA1", json_string(state->server_connp.cert0_fingerprint));
     }
     switch (state->server_connp.version) {
         case TLS_VERSION_UNKNOWN:
-            MemBufferWriteString(aft->buffer, " VERSION='UNDETERMINED'");
+            //MemBufferWriteString(aft->buffer, " VERSION='UNDETERMINED'");
+            json_object_set(logJson, "Version", json_string("UNDETERMINED"));
             break;
         case SSL_VERSION_2:
-            MemBufferWriteString(aft->buffer, " VERSION='SSLv2'");
+            //MemBufferWriteString(aft->buffer, " VERSION='SSLv2'");
+            json_object_set(logJson, "Version", json_string("SSLv2"));
             break;
         case SSL_VERSION_3:
-            MemBufferWriteString(aft->buffer, " VERSION='SSLv3'");
+            //MemBufferWriteString(aft->buffer, " VERSION='SSLv3'");
+            json_object_set(logJson, "Version", json_string("SSLv3"));
             break;
         case TLS_VERSION_10:
-            MemBufferWriteString(aft->buffer, " VERSION='TLSv1'");
+            //MemBufferWriteString(aft->buffer, " VERSION='TLSv1'");
+            json_object_set(logJson, "Version", json_string("TLSv1"));
             break;
         case TLS_VERSION_11:
-            MemBufferWriteString(aft->buffer, " VERSION='TLS 1.1'");
+            //MemBufferWriteString(aft->buffer, " VERSION='TLS 1.1'");
+            json_object_set(logJson, "Version", json_string("TLS 1.1"));
             break;
         case TLS_VERSION_12:
-            MemBufferWriteString(aft->buffer, " VERSION='TLS 1.2'");
+            //MemBufferWriteString(aft->buffer, " VERSION='TLS 1.2'");
+            json_object_set(logJson, "Version", json_string("TLS 1.2"));
             break;
         default:
-            MemBufferWriteString(aft->buffer, " VERSION='0x%04x'",
-                                 state->server_connp.version);
+            //MemBufferWriteString(aft->buffer, " VERSION='0x%04x'",
+            //                     state->server_connp.version);
+            json_object_set(logJson, "Version", json_integer(state->server_connp.version));
             break;
     }
-    MemBufferWriteString(aft->buffer, "\n");
+    //MemBufferWriteString(aft->buffer, "\n");
 }
 
 static int GetIPInformations(Packet *p, char* srcip, size_t srcip_len,
@@ -410,19 +475,41 @@ static TmEcode LogTlsLogJsonIPWrapper(ThreadVars *tv, Packet *p, void *data, Pac
 
     /* reset */
     MemBufferReset(aft->buffer);
+    
+    /* json format */
 
-    MemBufferWriteString(aft->buffer,
+    json_t *logJson = json_object();
+
+    /* {key:value} */
+    json_object_set(logJson,"timestamp", json_string(timebuf));
+    json_object_set(logJson,"ipver"    , json_string("4"));
+    json_object_set(logJson,"srcip"    , json_string(srcip));
+    json_object_set(logJson,"dstip"    , json_string(dstip));
+    json_object_set(logJson,"protocol" , json_integer(ipproto));
+    json_object_set(logJson,"sp"       , json_integer(sp));
+    json_object_set(logJson,"dp"       , json_integer(dp));
+    json_object_set(logJson,"subject"  , json_string(ssl_state->server_connp.cert0_subject));
+    json_object_set(logJson,"issuer"   , json_string(ssl_state->server_connp.cert0_issuerdn));
+
+    /*MemBufferWriteString(aft->buffer,
                          "%s %s:%d -> %s:%d  TLS: Subject='%s' Issuerdn='%s'",
                          timebuf, srcip, sp, dstip, dp,
-                         ssl_state->server_connp.cert0_subject, ssl_state->server_connp.cert0_issuerdn);
+                         ssl_state->server_connp.cert0_subject, ssl_state->server_connp.cert0_issuerdn);*/
+
+    //MemBufferWriteString(aft->buffer,json_dumps(logJson,0));
+
+    //decref(logJson);
 
     AppLayerTransactionUpdateLoggedIdForIndex(p->flow, tmm_modules[TMM_LOGTLSLOGJSON].index);
 
     if (hlog->flags & LOG_TLS_EXTENDED) {
-        LogTlsLogJsonExtended(aft, ssl_state);
-    } else {
-        MemBufferWriteString(aft->buffer, "\n");
+        LogTlsLogJsonExtended(logJson, ssl_state);
+    //} else {
+      //  MemBufferWriteString(aft->buffer, "\n");
     }
+    
+    MemBufferWriteString(aft->buffer,json_dumps(logJson,0));
+    MemBufferWriteString(aft->buffer, "\n");
 
     aft->tls_cnt ++;
 
@@ -604,3 +691,5 @@ static void LogTlsLogJsonDeInitCtx(OutputCtx *output_ctx)
     SCFree(tlslog_ctx);
     SCFree(output_ctx);
 }
+
+#endif //HAVE_LIBJANSSON
