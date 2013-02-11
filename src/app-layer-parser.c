@@ -676,8 +676,9 @@ void AppLayerRegisterGetFilesFunc(uint16_t proto,
 /** \brief Indicate to the app layer parser that a logger is active
  *         for this protocol.
  */
-void AppLayerRegisterLogger(uint16_t proto) {
+int AppLayerRegisterLogger(uint16_t proto) {
     al_proto_table[proto].logger = TRUE;
+    return al_proto_table[proto].id++;
 }
 
 
@@ -812,6 +813,21 @@ static int AppLayerDoParse(void *local_data, Flow *f,
     SCReturnInt(retval);
 }
 
+/* find the lowest logged_id */
+uint16_t MinLoggerId(AppLayerParserStateStore *parser_state_store){
+    int i = 0;
+    uint16_t logged_id_min = parser_state_store->logged_id[0];
+
+    for(i = 0; i < NB_MAX_LOGGER; i++) {
+        if(logged_id_min > parser_state_store->logged_id[i]) {
+             logged_id_min = parser_state_store->logged_id[i];
+        }
+    }
+ 
+    return logged_id_min;
+ }
+
+
 /** \brief remove obsolete (inspected and logged) transactions */
 static int AppLayerTransactionsCleanup(AppLayerProto *p, AppLayerParserStateStore *parser_state_store, void *app_layer_state) {
     SCEnter();
@@ -824,8 +840,8 @@ static int AppLayerTransactionsCleanup(AppLayerProto *p, AppLayerParserStateStor
     }
 
     if (p->logger == TRUE) {
-        uint16_t low = (parser_state_store->logged_id < parser_state_store->inspect_id) ?
-            parser_state_store->logged_id : parser_state_store->inspect_id;
+        uint16_t low = (MinLoggerId(parser_state_store) < parser_state_store->inspect_id) ?
+            MinLoggerId(parser_state_store) : parser_state_store->inspect_id;
 
         obsolete = low - parser_state_store->base_id;
 
@@ -1137,7 +1153,7 @@ error:
 }
 
 /** \brief get the highest loggable transaction id */
-void AppLayerTransactionUpdateLoggedId(Flow *f) {
+void AppLayerTransactionUpdateLoggedIdForIndex(Flow *f, int index) {
     SCEnter();
 
     DEBUG_ASSERT_FLOW_LOCKED(f);
@@ -1150,14 +1166,20 @@ void AppLayerTransactionUpdateLoggedId(Flow *f) {
         goto error;
     }
 
-    parser_state_store->logged_id++;
+    parser_state_store->logged_id[index]++;
     SCReturn;
 
 error:
     SCReturn;
 }
+
+/* Wrapper of UpdateLoggerId */
+void AppLayerTransactionUpdateLoggedId(Flow *f) {
+    AppLayerTransactionUpdateLoggedIdForIndex(f,0);
+}
+
 /** \brief get the highest loggable transaction id */
-int AppLayerTransactionGetLoggedId(Flow *f) {
+int AppLayerTransactionGetLoggedIdForIndex(Flow *f, int index) {
     SCEnter();
 
     DEBUG_ASSERT_FLOW_LOCKED(f);
@@ -1170,10 +1192,15 @@ int AppLayerTransactionGetLoggedId(Flow *f) {
         goto error;
     }
 
-    SCReturnInt((int)parser_state_store->logged_id);
+    SCReturnInt((int)parser_state_store->logged_id[index]);
 
 error:
     SCReturnInt(-1);
+}
+
+/* wrapper of GetLoggerId */
+int AppLayerTransactionGetLoggedId(Flow *f) {
+    return AppLayerTransactionGetLoggedIdForIndex(f,0);
 }
 
 /**

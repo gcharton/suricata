@@ -56,6 +56,7 @@ typedef struct TmModule_ {
                              the given TmModule */
     /* Other flags used by the module */
     uint8_t flags;
+    uint8_t index;
 } TmModule;
 
 TmModule tmm_modules[TMM_SIZE];

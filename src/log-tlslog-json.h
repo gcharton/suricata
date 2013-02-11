@@ -22,13 +22,13 @@
  * \author Eric Leblond <eric@regit.org>
  */
 
-#ifndef __LOG_TLSLOG_H__
-#define __LOG_TLSLOG_H__
+#ifndef __LOG_TLSLOG_JSON_H__
+#define __LOG_TLSLOG_JSON_H__
 
 void TmModuleLogTlsLogJsonRegister (void);
 void TmModuleLogTlsLogJsonIPv4Register (void);
 void TmModuleLogTlsLogJsonIPv6Register (void);
 OutputCtx *LogTlsLogJsonInitCtx(ConfNode *);
 
-#endif /* __LOG_TLSLOG_H__ */
+#endif /* __LOG_TLSLOG_JSON_H__ */
 

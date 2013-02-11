@@ -49,7 +49,7 @@
 #include "util-logopenfile.h"
 #include "util-crypt.h"
 
-#define DEFAULT_LOG_FILENAME "tls.log"
+#define DEFAULT_LOG_FILENAME "tls-json.log"
 
 static char tls_logfile_base_dir[PATH_MAX] = "/tmp";
 SC_ATOMIC_DECLARE(unsigned int, cert_id);
@@ -72,40 +72,40 @@ static void LogTlsLogJsonDeInitCtx(OutputCtx *);
 
 void TmModuleLogTlsLogJsonRegister(void)
 {
-    tmm_modules[TMM_LOGTLSLOG].name = MODULE_NAME;
-    tmm_modules[TMM_LOGTLSLOG].ThreadInit = LogTlsLogJsonThreadInit;
-    tmm_modules[TMM_LOGTLSLOG].Func = LogTlsLogJson;
-    tmm_modules[TMM_LOGTLSLOG].ThreadExitPrintStats = LogTlsLogJsonExitPrintStats;
-    tmm_modules[TMM_LOGTLSLOG].ThreadDeinit = LogTlsLogJsonThreadDeinit;
-    tmm_modules[TMM_LOGTLSLOG].RegisterTests = NULL;
-    tmm_modules[TMM_LOGTLSLOG].cap_flags = 0;
+    tmm_modules[TMM_LOGTLSLOGJSON].name = MODULE_NAME;
+    tmm_modules[TMM_LOGTLSLOGJSON].ThreadInit = LogTlsLogJsonThreadInit;
+    tmm_modules[TMM_LOGTLSLOGJSON].Func = LogTlsLogJson;
+    tmm_modules[TMM_LOGTLSLOGJSON].ThreadExitPrintStats = LogTlsLogJsonExitPrintStats;
+    tmm_modules[TMM_LOGTLSLOGJSON].ThreadDeinit = LogTlsLogJsonThreadDeinit;
+    tmm_modules[TMM_LOGTLSLOGJSON].RegisterTests = NULL;
+    tmm_modules[TMM_LOGTLSLOGJSON].cap_flags = 0;
+    tmm_modules[TMM_LOGTLSLOGJSON].index =  AppLayerRegisterLogger(ALPROTO_TLS);
 
     OutputRegisterModule(MODULE_NAME, "tls-log-json", LogTlsLogJsonInitCtx);
 
     /* enable the logger for the app layer */
-    AppLayerRegisterLogger(ALPROTO_TLS);
 
     SC_ATOMIC_INIT(cert_id);
 }
 
 void TmModuleLogTlsLogJsonIPv4Register(void)
 {
-    tmm_modules[TMM_LOGTLSLOG4].name = "LogTlsLogJsonIPv4";
-    tmm_modules[TMM_LOGTLSLOG4].ThreadInit = LogTlsLogJsonThreadInit;
-    tmm_modules[TMM_LOGTLSLOG4].Func = LogTlsLogJsonIPv4;
-    tmm_modules[TMM_LOGTLSLOG4].ThreadExitPrintStats = LogTlsLogJsonExitPrintStats;
-    tmm_modules[TMM_LOGTLSLOG4].ThreadDeinit = LogTlsLogJsonThreadDeinit;
-    tmm_modules[TMM_LOGTLSLOG4].RegisterTests = NULL;
+    tmm_modules[TMM_LOGTLSLOGJSON4].name = "LogTlsLogJsonIPv4";
+    tmm_modules[TMM_LOGTLSLOGJSON4].ThreadInit = LogTlsLogJsonThreadInit;
+    tmm_modules[TMM_LOGTLSLOGJSON4].Func = LogTlsLogJsonIPv4;
+    tmm_modules[TMM_LOGTLSLOGJSON4].ThreadExitPrintStats = LogTlsLogJsonExitPrintStats;
+    tmm_modules[TMM_LOGTLSLOGJSON4].ThreadDeinit = LogTlsLogJsonThreadDeinit;
+    tmm_modules[TMM_LOGTLSLOGJSON4].RegisterTests = NULL;
 }
 
 void TmModuleLogTlsLogJsonIPv6Register(void)
 {
-    tmm_modules[TMM_LOGTLSLOG6].name = "LogTlsLogJsonIPv6";
-    tmm_modules[TMM_LOGTLSLOG6].ThreadInit = LogTlsLogJsonThreadInit;
-    tmm_modules[TMM_LOGTLSLOG6].Func = LogTlsLogJsonIPv6;
-    tmm_modules[TMM_LOGTLSLOG6].ThreadExitPrintStats = LogTlsLogJsonExitPrintStats;
-    tmm_modules[TMM_LOGTLSLOG6].ThreadDeinit = LogTlsLogJsonThreadDeinit;
-    tmm_modules[TMM_LOGTLSLOG6].RegisterTests = NULL;
+    tmm_modules[TMM_LOGTLSLOGJSON6].name = "LogTlsLogJsonIPv6";
+    tmm_modules[TMM_LOGTLSLOGJSON6].ThreadInit = LogTlsLogJsonThreadInit;
+    tmm_modules[TMM_LOGTLSLOGJSON6].Func = LogTlsLogJsonIPv6;
+    tmm_modules[TMM_LOGTLSLOGJSON6].ThreadExitPrintStats = LogTlsLogJsonExitPrintStats;
+    tmm_modules[TMM_LOGTLSLOGJSON6].ThreadDeinit = LogTlsLogJsonThreadDeinit;
+    tmm_modules[TMM_LOGTLSLOGJSON6].RegisterTests = NULL;
 }
 
 typedef struct LogTlsJsonFileCtx_ {
@@ -393,7 +393,7 @@ static TmEcode LogTlsLogJsonIPWrapper(ThreadVars *tv, Packet *p, void *data, Pac
         LogTlsLogJsonPem(aft, p, ssl_state, hlog, ipproto);
     }
 
-    int r = AppLayerTransactionGetLoggedId(p->flow);
+    int r = AppLayerTransactionGetLoggedIdForIndex(p->flow, tmm_modules[TMM_LOGTLSLOGJSON].index);
 
     if (r != 0) {
         goto end;
@@ -416,7 +416,7 @@ static TmEcode LogTlsLogJsonIPWrapper(ThreadVars *tv, Packet *p, void *data, Pac
                          timebuf, srcip, sp, dstip, dp,
                          ssl_state->server_connp.cert0_subject, ssl_state->server_connp.cert0_issuerdn);
 
-    AppLayerTransactionUpdateLoggedId(p->flow);
+    AppLayerTransactionUpdateLoggedIdForIndex(p->flow, tmm_modules[TMM_LOGTLSLOGJSON].index);
 
     if (hlog->flags & LOG_TLS_EXTENDED) {
         LogTlsLogJsonExtended(aft, ssl_state);
